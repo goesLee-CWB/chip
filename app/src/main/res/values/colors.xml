@@ -1,0 +1,5 @@
+<resources>
+    <color name="status_bar_bg">#121212</color>
+    <color name="splash_bg">#121212</color>
+    <color name="accent_color">#007AFF</color>
+</resources>
