@@ -1,12 +1,15 @@
 package com.lixataco.app
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
 import android.webkit.CookieManager
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
@@ -18,6 +21,7 @@ import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.lixataco.app.databinding.ActivityMainBinding
 
@@ -29,6 +33,7 @@ class MainActivity : AppCompatActivity() {
 
     private var isPageLoaded = false
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var pendingPermissionRequest: PermissionRequest? = null
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -36,6 +41,19 @@ class MainActivity : AppCompatActivity() {
         val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
         filePathCallback?.onReceiveValue(uris)
         filePathCallback = null
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        val request = pendingPermissionRequest
+        pendingPermissionRequest = null
+        if (isGranted && request != null) {
+            request.grant(request.resources)
+        } else {
+            request?.deny()
+            Toast.makeText(this, "Permissão de câmera negada.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -152,6 +170,27 @@ class MainActivity : AppCompatActivity() {
                 binding.progressBar.progress = newProgress
                 if (newProgress == 100) {
                     binding.progressBar.visibility = View.GONE
+                }
+            }
+
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                runOnUiThread {
+                    val wantsCamera = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+                    if (wantsCamera) {
+                        if (ContextCompat.checkSelfPermission(
+                                this@MainActivity,
+                                Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            request.grant(request.resources)
+                        } else {
+                            pendingPermissionRequest = request
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    } else {
+                        request.grant(request.resources)
+                    }
                 }
             }
 
